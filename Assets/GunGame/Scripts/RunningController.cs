@@ -1,8 +1,3 @@
-using System;
-using System.IO.Pipes;
-using Cinemachine;
-using TMPro;
-using UnityEditor.Animations;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.Serialization;
@@ -13,20 +8,20 @@ namespace GunGame
     [RequireComponent(typeof(Animator))]
     [RequireComponent(typeof(Rigidbody))]
     [RequireComponent(typeof(CapsuleCollider))]
-    public class N3DController : MonoBehaviour
+    public class RunningController : MonoBehaviour
     {
         [SerializeField] private Animator animator;
-        [SerializeField] private Rigidbody rigidbody;
+        [SerializeField] private new Rigidbody rigidbody;
 
         public Camera followCamera;
         public bool grounded = true;
         public bool attacking = false;
         public LayerMask groundLayers;
 
-        private PlayerInputActions inputActions;
+        private PlayerInputActions _inputActions;
 
         private readonly float MoveSpeed = 6.0f;
-        private float sprintSpeed = 16f;
+        private float sprintSpeed = 20f;
         private float rotationSmoothTime = 0.12f;
         private float speedChangeRate = 10.0f;
         private float jumpHeight = 1.2f;
@@ -36,8 +31,8 @@ namespace GunGame
         private float fallTimeout = 0.15f;
         private float attackTriggeredTimeout = 0.50f;
 
-        private float groundedOffset = -0.14f;
-        private float groundedRadius = 0.8f;
+        private float groundedOffset = -0.1f;
+        private float groundedRadius = 0.3f;
 
         // player
         private float _speed;
@@ -49,7 +44,7 @@ namespace GunGame
 
         // timeout deltatime
         private float _jumpTriggeredTimeoutDelta;
-        private float _fallTimeoutDelata;
+        private float _fallTimeoutDelta;
         private float _attackTriggeredTimeoutDelta;
 
         // animation Id
@@ -63,8 +58,8 @@ namespace GunGame
 
         private void Awake()
         {
-            inputActions = new PlayerInputActions();
-            inputActions.Enable();
+            _inputActions = new PlayerInputActions();
+            _inputActions.Enable();
 
             AssignAnimationIDs();
         }
@@ -101,13 +96,14 @@ namespace GunGame
             Vector3 spherePosition = transform.position;
             grounded = Physics.CheckSphere(spherePosition, groundedRadius, groundLayers,
                 QueryTriggerInteraction.Ignore);
+            Debug.DrawRay(spherePosition, Vector3.down * (groundedOffset + groundedRadius), Color.red, 0.0f, false);
             animator.SetBool(_animIDGrounded, grounded);
         }
 
         private void Move()
         {
-            float targetSpeed = inputActions.Player.Sprint.IsInProgress() ? sprintSpeed : MoveSpeed;
-            var moveInput = inputActions.Player.Move.ReadValue<Vector2>();
+            float targetSpeed = _inputActions.Player.Sprint.IsInProgress() ? sprintSpeed : MoveSpeed;
+            var moveInput = _inputActions.Player.Move.ReadValue<Vector2>();
 
             // note: Vector2's == operator uses approximation so is not floating point error prone, and is cheaper than magnitude
             if (moveInput == Vector2.zero) targetSpeed = 0.0f;
@@ -157,7 +153,7 @@ namespace GunGame
         {
             if (grounded)
             {
-                _fallTimeoutDelata = fallTimeout; // reset
+                _fallTimeoutDelta = fallTimeout; // reset
                 animator.SetBool(_animIDJumpTriggered, false);
                 animator.SetBool(_animIDFreeFall, false);
 
@@ -166,7 +162,7 @@ namespace GunGame
                     _verticalVelocity = -2f;
                 }
 
-                if (inputActions.Player.Jump.IsInProgress() && _jumpTriggeredTimeoutDelta <= 0.0f)
+                if (_inputActions.Player.Jump.IsInProgress() && _jumpTriggeredTimeoutDelta <= 0.0f)
                 {
                     _verticalVelocity = Mathf.Sqrt(jumpHeight * -2f * gravity);
                     animator.SetBool(_animIDJumpTriggered, true);
@@ -181,9 +177,9 @@ namespace GunGame
             {
                 _jumpTriggeredTimeoutDelta = jumpTriggeredTimeout;
 
-                if (_fallTimeoutDelata >= 0.0f)
+                if (_fallTimeoutDelta >= 0.0f)
                 {
-                    _fallTimeoutDelata -= Time.deltaTime;
+                    _fallTimeoutDelta -= Time.deltaTime;
                 }
                 else
                 {
@@ -200,7 +196,8 @@ namespace GunGame
         private void HandleAttack()
         {
             var currentState = animator.GetCurrentAnimatorStateInfo(0);
-            if (currentState.IsName("normal_attack_1") || currentState.IsName("normal_attack_2") || currentState.IsName("normal_attack_3") && currentState.normalizedTime < 1)
+            if (currentState.IsName("normal_attack_1") || currentState.IsName("normal_attack_2") ||
+                currentState.IsName("normal_attack_3") && currentState.normalizedTime < 1)
             {
                 attacking = true;
             }
@@ -213,7 +210,7 @@ namespace GunGame
             }
             else
             {
-                if (inputActions.Player.Attack.IsInProgress() && _attackTriggeredTimeoutDelta <= 0f)
+                if (_inputActions.Player.Attack.IsInProgress() && _attackTriggeredTimeoutDelta <= 0f)
                 {
                     animator.SetBool(_animIDAttackTriggered, true);
                     animator.SetBool(_animIDAttacking, true);
