@@ -94,7 +94,7 @@ namespace Project
             // get the normal of the ground to orient player correctly
             RaycastHit hit;
             Vector3 groundNormal;
-            if (Physics.Raycast(transform.position - Vector3.up * (groundedOffset * 10f), Vector3.down * 5f,
+            if (Physics.Raycast(transform.position + Vector3.up, Vector3.down * 5f,
                     out hit, groundLayers))
                 groundNormal = hit.normal;
             else
@@ -103,7 +103,7 @@ namespace Project
             // calculate the angle of slope below player, considering direction of player
             var forward = transform.forward;
             var projection = Vector3.ProjectOnPlane(forward, groundNormal).normalized;
-            _forwardAngle = Vector3.SignedAngle(projection, forward, transform.right);
+            _forwardAngle = Vector3.SignedAngle(forward, projection, transform.right);
 
             Debug.Log($"normal: {groundNormal}, forwardAngle: {_forwardAngle}");
 
