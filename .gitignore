@@ -1,7 +1,5 @@
-Assets/VRMEditor/Models/vrm*
-Assets/VRMEditor/Models/vrm*
-
-
+Assets/Models/VRM*
+!Assets/Models/VRM*/.gitkeep
 
 # Created by https://www.toptal.com/developers/gitignore/api/unity,rider
 # Edit at https://www.toptal.com/developers/gitignore?templates=unity,rider
