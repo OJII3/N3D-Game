@@ -20,7 +20,6 @@ namespace Project
 
         public Camera followCamera;
         public bool grounded = true;
-        public bool attacking;
         public LayerMask groundLayers;
         private readonly int _animIDAttacking = Animator.StringToHash("Attacking");
         private readonly int _animIDAttackTriggered = Animator.StringToHash("AttackTriggered");
@@ -31,9 +30,15 @@ namespace Project
 
         // animation Id
         private readonly int _animIDSpeed = Animator.StringToHash("Speed");
+        private readonly float _fallTimeout = 0.15f;
         private readonly float _gravity = -15.0f;
-        private readonly float _jumpHeight = 1.2f;
-        private readonly float _moveSpeed = 20f;
+
+        private readonly float _groundedOffset = -0.1f;
+        private readonly float _groundedRadius = 0.3f;
+        private readonly float _jumpHeight = 1.4f;
+
+        private readonly float _jumpTriggeredTimeout = 0.50f;
+        private readonly float _moveSpeed = 24f;
         private readonly float _rotationSmoothTime = 0.12f;
         private readonly float _speedChangeRate = 10.0f;
         private readonly float _sprintSpeed = 100f;
@@ -41,12 +46,6 @@ namespace Project
 
 
         private readonly float _walkSpeed = 6.0f;
-        private readonly float fallTimeout = 0.15f;
-
-        private readonly float groundedOffset = -0.1f;
-        private readonly float groundedRadius = 0.3f;
-
-        private readonly float jumpTriggeredTimeout = 0.50f;
         private float _animationBlend;
         private float _attackTriggeredTimeoutDelta;
         private float _fallTimeoutDelta;
@@ -64,7 +63,6 @@ namespace Project
 
         private void Awake()
         {
-            AssignAnimationIDs();
         }
 
         private void Update()
@@ -82,14 +80,18 @@ namespace Project
         {
         }
 
-        private void AssignAnimationIDs()
+        private void OnValidate()
         {
+            if (animator == null) animator = GetComponent<Animator>();
+            if (rigidbody == null) rigidbody = GetComponent<Rigidbody>();
+            if (playerInput == null) playerInput = GetComponent<PlayerInput>();
+            animator.applyRootMotion = false;
         }
 
         private void GroundCheck()
         {
-            var spherePosition = transform.position + Vector3.up * groundedOffset;
-            grounded = Physics.CheckSphere(spherePosition, groundedRadius, groundLayers,
+            var spherePosition = transform.position + Vector3.up * _groundedOffset;
+            grounded = Physics.CheckSphere(spherePosition, _groundedRadius, groundLayers,
                 QueryTriggerInteraction.Ignore);
             // get the normal of the ground to orient player correctly
             RaycastHit hit;
@@ -105,10 +107,8 @@ namespace Project
             var projection = Vector3.ProjectOnPlane(forward, groundNormal).normalized;
             _forwardAngle = Vector3.SignedAngle(forward, projection, transform.right);
 
-            Debug.Log($"normal: {groundNormal}, forwardAngle: {_forwardAngle}");
-
-            Debug.DrawRay(spherePosition + Vector3.up * groundedOffset,
-                Vector3.down * (groundedOffset + groundedRadius), Color.red, 0.0f, false);
+            Debug.DrawRay(spherePosition + Vector3.up * _groundedOffset,
+                Vector3.down * (_groundedOffset + _groundedRadius), Color.red, 0.0f, false);
             animator.SetBool(_animIDGrounded, grounded);
         }
 
@@ -143,7 +143,7 @@ namespace Project
 
             var inputDirection = new Vector3(moveInput.x, 0.0f, moveInput.y).normalized;
 
-            if (moveInput != Vector2.zero)
+            if (moveInput != Vector2.zero && grounded)
             {
                 _targetRotation = Mathf.Atan2(inputDirection.x, inputDirection.z) * Mathf.Rad2Deg +
                                   followCamera.transform.eulerAngles.y;
@@ -156,7 +156,10 @@ namespace Project
             var targetDirection = Quaternion.Euler(_forwardAngle, _targetRotation, 0.0f) * Vector3.forward;
             var targetDeltaPosition = targetDirection.normalized * (_speed * Time.deltaTime) +
                                       new Vector3(0.0f, _verticalVelocity, 0.0f) * Time.deltaTime;
-            rigidbody.MovePosition(rigidbody.position + targetDeltaPosition);
+            // rigidbody.MovePosition(rigidbody.position + targetDeltaPosition);
+            rigidbody.velocity = grounded
+                ? targetDeltaPosition / Time.fixedDeltaTime
+                : new Vector3(rigidbody.velocity.x * 0.95f, rigidbody.velocity.y, rigidbody.velocity.z * 0.95f);
 
             // update animator
             animator.SetFloat(_animIDSpeed, _animationBlend);
@@ -167,7 +170,7 @@ namespace Project
         {
             if (grounded)
             {
-                _fallTimeoutDelta = fallTimeout; // reset
+                _fallTimeoutDelta = _fallTimeout; // reset
                 animator.SetBool(_animIDJumpTriggered, false);
                 animator.SetBool(_animIDFreeFall, false);
 
@@ -183,7 +186,7 @@ namespace Project
             }
             else
             {
-                _jumpTriggeredTimeoutDelta = jumpTriggeredTimeout;
+                _jumpTriggeredTimeoutDelta = _jumpTriggeredTimeout;
 
                 if (_fallTimeoutDelta >= 0.0f)
                     _fallTimeoutDelta -= Time.deltaTime;

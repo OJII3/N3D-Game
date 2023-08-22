@@ -1,0 +1,3 @@
+[submodule "Assets/Project/Models/CyberCity"]
+	path = Assets/Project/Models/CyberCity
+	url = https://github.com/OJII3/CyberCity.git
